@@ -2,36 +2,34 @@ import argparse
 import subprocess
 import re
 import requests
+import ipaddress
 
 
-def is_public_ip(ip):
+def is_public_ip(ip_address):
+    """
+    проверяет, является ли IP-адрес публичным.
+    :param ip_address: ip-адрес (строка)
+    :return: True, если публичный,
+             False, если частный.
+             None, если недействителеный
+    """
 
-    """Проверка, является ли IP-адрес публичным."""
-
-    private_ranges = [
-        (10 ** 8, 10 ** 8 + (2 ** 24 - 1)),  # 10.0.0.0 - 10.255.255.255
-        (172 ** 8 + 16 ** 4, 172 ** 8 + 31 ** 4 + (2 ** 20 - 1)),  # 172.16.0.0 - 172.31.255.255
-        (192 ** 8 + 168 ** 4, 192 ** 8 + 168 ** 4 + (2 ** 16 - 1)),  # 192.168.0.0 - 192.168.255.255
-        (169 ** 8 + 254 ** 4, 169 ** 8 + 254 ** 4 + (2 ** 16 - 1)),  # 169.254.0.0 - 169.254.255.255
-    ]
-    ip_parts = list(map(int, ip.split('.')))
-    ip_num = (ip_parts[0] * 256 ** 3) + (ip_parts[1] * 256 ** 2) + (ip_parts[2] * 256) + ip_parts[3]
-
-    for start, end in private_ranges:
-        if start <= ip_num <= end:
-            return False  # Это частный IP
-    return True  # Это публичный IP
+    try:
+        ip = ipaddress.ip_address(ip_address)
+        return not ip.is_private
+    except ValueError:
+        return None
 
 
 def get_AS_info(ip):
 
     """Получить информацию об автономной системе по IP-адресу."""
 
-    url = f'http://ipinfo.io/{ip}/json'
+    url = f'http://ip-api.com/json/{ip}'
     try:
         response = requests.get(url)
         data = response.json()
-        asn = data.get("org", "Неизвестно")
+        asn = data.get("as", "не известно")
         return asn
     except Exception as e:
         return f"Ошибка: {e}"
@@ -44,13 +42,13 @@ def decode_line(line, count):
     match_miss = re.findall(r"\* {8}\* {8}\*", decoded_line)
 
     if local_ip:
-        return f"{count} {ip[0]} local"
+        return f"{count} {ip[0]} local ip"
     elif ip:
         if is_public_ip(ip[0]):
             as_info = get_AS_info(ip[0])
             return f"{count} {ip[0]} {as_info}"
         else:
-            return f"{count} {ip[0]} private"
+            return f"{count} {ip[0]} private ip"
     elif match_miss:
         return f"***"
 
